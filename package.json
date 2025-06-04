@@ -1,6 +1,6 @@
 {
   "name": "kafka-nestjs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A structured Kafka integration for NestJS inspired by BullMQ, offering decorators, modular configuration, and a scalable consumer/producer architecture.",
   "main": "index.js",
   "scripts": {
