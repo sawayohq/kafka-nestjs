@@ -8,8 +8,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "build": "npx tsc",
+    "prepublishOnly": "npm run build",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean"
   },
   "repository": {
     "type": "git",
@@ -30,5 +32,10 @@
     "@nestjs/common": "^11.1.2",
     "@nestjs/core": "^11.1.2",
     "kafkajs": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
   }
 }
