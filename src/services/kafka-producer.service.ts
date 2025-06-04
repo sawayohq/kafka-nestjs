@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional } from '@nestjs/common';
 import { ICustomPartitioner, Kafka, KafkaConfig, Partitioners, Producer, ProducerRecord } from 'kafkajs';
 import { KAFKA_MODULE_OPTIONS } from '../constants/kafka.constants';
 
@@ -10,6 +10,8 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   private producer: Producer;
 
   constructor(
+    @Optional()
+    @Inject('KAFKA_PARTITIONER')
     readonly createPartitioner: ICustomPartitioner = Partitioners.DefaultPartitioner,
     @Inject(KAFKA_MODULE_OPTIONS)
     private readonly options: KafkaConfig,
