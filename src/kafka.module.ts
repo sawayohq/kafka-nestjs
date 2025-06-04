@@ -1,5 +1,5 @@
 import { Module, Global, DynamicModule, Provider } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import { DiscoveryModule, ModulesContainer, MetadataScanner, Reflector } from '@nestjs/core';
 import { KafkaDynamicListenerService } from './services/kafka-dynamic-listener.service';
 import {
   SharedKafkaAsyncConfiguration,
@@ -39,6 +39,9 @@ export class KafkaModule {
           provide: 'KAFKA_PARTITIONER',
           useValue: undefined,
         },
+        ModulesContainer,
+        MetadataScanner,
+        Reflector,
         KafkaDynamicListenerService,
         KafkaProducerService,
       ],
@@ -65,6 +68,9 @@ export class KafkaModule {
           provide: 'KAFKA_PARTITIONER',
           useValue: undefined,
         },
+        ModulesContainer,
+        MetadataScanner,
+        Reflector,
         KafkaDynamicListenerService,
         KafkaProducerService,
       ],
