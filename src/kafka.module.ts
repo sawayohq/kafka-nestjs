@@ -1,5 +1,15 @@
-import { Module, Global, DynamicModule, Provider } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import {
+  Module,
+  Global,
+  DynamicModule,
+  Provider,
+} from '@nestjs/common';
+import {
+  DiscoveryModule,
+  ModulesContainer,
+  MetadataScanner,
+  Reflector,
+} from '@nestjs/core';
 import { KafkaDynamicListenerService } from './services/kafka-dynamic-listener.service';
 import {
   SharedKafkaAsyncConfiguration,
@@ -15,10 +25,16 @@ export class KafkaModule {
     return {
       module: KafkaModule,
       imports: [DiscoveryModule],
-      providers: [KafkaProducerService],
+      providers: [
+        KafkaProducerService,
+        ModulesContainer,
+        MetadataScanner,
+        Reflector,
+      ],
       exports: [KafkaProducerService],
     };
   }
+
   static forRoot(options: KafkaConfig): DynamicModule {
     return {
       module: KafkaModule,
@@ -28,8 +44,11 @@ export class KafkaModule {
           provide: KAFKA_MODULE_OPTIONS,
           useValue: options,
         },
-        KafkaDynamicListenerService,
         KafkaProducerService,
+        KafkaDynamicListenerService,
+        ModulesContainer,
+        MetadataScanner,
+        Reflector,
       ],
       exports: [KafkaProducerService],
     };
@@ -50,8 +69,13 @@ export class KafkaModule {
       imports: [DiscoveryModule],
       providers: [
         asyncProvider,
-        KafkaDynamicListenerService,
         KafkaProducerService,
+        KafkaDynamicListenerService,
+
+        // ✅ Add these three
+        ModulesContainer,
+        MetadataScanner,
+        Reflector,
       ],
       exports: [KafkaProducerService],
     };
