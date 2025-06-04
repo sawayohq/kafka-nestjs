@@ -73,7 +73,7 @@ export class KafkaDynamicListenerService
       module: string;
     },
     options: KafkaConsumerOptions,
-    handler: (message: any) => Promise<void>,
+    handler: (message: any, payload?: EachMessagePayload) => Promise<void>,
   ) {
     const groupId = options.consumerConfig.groupId;
     if (this.groupIds.has(groupId)) {
@@ -86,11 +86,11 @@ export class KafkaDynamicListenerService
     await consumer.connect();
     await consumer.subscribe(options.subscribe);
     await consumer.run({
-      eachMessage: async ({ message }: EachMessagePayload) => {
-        const value = message.value?.toString();
+      eachMessage: async (payload: EachMessagePayload) => {
+        const value = payload.message.value?.toString();
         try {
           const parsed = value ? JSON.parse(value) : null;
-          await handler(parsed);
+          await handler(parsed, payload);
         } catch (error) {
           this.logger.error(
             {
