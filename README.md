@@ -43,10 +43,29 @@ import { KafkaConsumer } from 'kafka-nestjs';
 @Controller()
 export class MyController {
   @KafkaConsumer({
-    topic: 'my-topic',
-    groupId: 'my-group',
+    subscribe: {
+      topics: ['example.event.stage'],
+      fromBeginning: true
+    },
+    consumerConfig: {
+      groupId: 'example.group.id'
+    }  
   })
   async handleMessage(message: any) {
+    console.log('Received message:', message);
+  }
+
+
+  @KafkaConsumer({
+    subscribe: {
+      topics: ['example.event.stage'],
+      fromBeginning: true
+    },
+    consumerConfig: {
+      groupId: 'example.group.id'
+    }  
+  })
+  async handleMessageWithPayload(message: any, payload: EachMessagePayload) {
     console.log('Received message:', message);
   }
 }
@@ -100,7 +119,28 @@ KafkaModule.forRootAsync({
 If you only need to produce messages:
 
 ```typescript
-KafkaModule.forProducer()
+import { KafkaModule } from 'kafka-nestjs';
+import { Module } from '@nestjs/common';
+import { ExampleService } from '.example.service';
+
+@Module({
+  imports: [
+    KafkaModule.forProducer()
+  ],
+  providers: [ExampleService],
+  exports: [ExampleService],
+})
+export class ExampleModule {}
+```
+
+```typescript
+import { KafkaProducerService } from 'kafka-nestjs';
+
+export class ExampleService {
+  constructor(
+    private readonly kafkaProducerService: KafkaProducerService,
+  }{}
+}
 ```
 
 ## Dependencies
