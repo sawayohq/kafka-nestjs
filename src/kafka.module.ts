@@ -30,7 +30,7 @@ export class KafkaModule {
   static forProducer(): DynamicModule {
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule],
+      imports: [DiscoveryModule, KafkaCoreModule, KafkaModule],
       providers: [
         {
           provide: 'KAFKA_PARTITIONER',
@@ -47,7 +47,7 @@ export class KafkaModule {
       module: KafkaModule,
       imports: [DiscoveryModule, KafkaCoreModule],
       providers: this.createProviders(options),
-      exports: [KafkaProducerService],
+      exports: [KafkaProducerService, KAFKA_MODULE_OPTIONS],
     };
   }
 
@@ -73,7 +73,7 @@ export class KafkaModule {
         KafkaDynamicListenerService,
         KafkaProducerService,
       ],
-      exports: [KafkaProducerService],
+      exports: [KafkaProducerService, KAFKA_MODULE_OPTIONS],
     };
   }
 }
