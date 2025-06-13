@@ -1,4 +1,4 @@
-import { Module, Global, DynamicModule, Provider } from '@nestjs/common';
+import { Module, Global, DynamicModule, Provider, OnModuleInit } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { KafkaDynamicListenerService } from './services/kafka-dynamic-listener.service';
 import {
@@ -12,6 +12,7 @@ import { KafkaCoreModule } from './kafka-core.module';
 @Global()
 @Module({})
 export class KafkaModule {
+
   private static createProviders(options: KafkaConfig): Provider[] {
     return [
       {
@@ -30,24 +31,25 @@ export class KafkaModule {
   static forProducer(): DynamicModule {
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule, KafkaModule],
+      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
       providers: [
         {
           provide: 'KAFKA_PARTITIONER',
           useValue: undefined,
         },
         KafkaProducerService,
+        KafkaDynamicListenerService,
       ],
-      exports: [KafkaProducerService],
+      exports: [KafkaProducerService, KafkaDynamicListenerService],
     };
   }
 
   static forRoot(options: KafkaConfig): DynamicModule {
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule],
+      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
       providers: this.createProviders(options),
-      exports: [KafkaProducerService, KAFKA_MODULE_OPTIONS],
+      exports: [KafkaProducerService, KafkaDynamicListenerService, KAFKA_MODULE_OPTIONS],
     };
   }
 
@@ -63,7 +65,7 @@ export class KafkaModule {
 
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule],
+      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
       providers: [
         asyncProvider,
         {
@@ -73,7 +75,7 @@ export class KafkaModule {
         KafkaDynamicListenerService,
         KafkaProducerService,
       ],
-      exports: [KafkaProducerService, KAFKA_MODULE_OPTIONS],
+      exports: [KafkaProducerService, KafkaDynamicListenerService, KAFKA_MODULE_OPTIONS],
     };
   }
 }

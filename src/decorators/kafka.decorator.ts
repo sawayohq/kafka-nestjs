@@ -7,5 +7,9 @@ export type KafkaConsumerOptions = {
   consumerConfig: ConsumerConfig;
 };
 
-export const KafkaConsumer = (options: KafkaConsumerOptions): MethodDecorator =>
-  SetMetadata(KAFKA_CONSUMER_METADATA, options);
+export const KafkaConsumer = (options: KafkaConsumerOptions): MethodDecorator => {
+  return (target, propertyKey, descriptor: PropertyDescriptor) => {
+    SetMetadata(KAFKA_CONSUMER_METADATA, options)(target, propertyKey, descriptor);
+    return descriptor;
+  };
+};
