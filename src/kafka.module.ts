@@ -1,6 +1,6 @@
-import { Module, Global, DynamicModule, Provider, OnModuleInit } from '@nestjs/common';
+import { Module, Global, DynamicModule, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { KafkaDynamicListenerService } from './services/kafka-dynamic-listener.service';
+import { KafkaExplorer } from './services/kafka.explorer';
 import {
   SharedKafkaAsyncConfiguration,
 } from './interfaces/shared-queue-async-configuration';
@@ -8,48 +8,45 @@ import { KAFKA_MODULE_OPTIONS } from './constants/kafka.constants';
 import { KafkaProducerService } from './services/kafka-producer.service';
 import { KafkaConfig } from 'kafkajs';
 import { KafkaCoreModule } from './kafka-core.module';
+import { KafkaMetadataAccessor } from './services/kafka-metadata.accessor';
 
 @Global()
 @Module({})
 export class KafkaModule {
 
-  private static createProviders(options: KafkaConfig): Provider[] {
+  private static createBaseProviders(): Provider[] {
     return [
-      {
-        provide: KAFKA_MODULE_OPTIONS,
-        useValue: options,
-      },
       {
         provide: 'KAFKA_PARTITIONER',
         useValue: undefined,
       },
-      KafkaDynamicListenerService,
+      KafkaExplorer,
       KafkaProducerService,
+      KafkaMetadataAccessor
     ];
   }
 
   static forProducer(): DynamicModule {
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
-      providers: [
-        {
-          provide: 'KAFKA_PARTITIONER',
-          useValue: undefined,
-        },
-        KafkaProducerService,
-        KafkaDynamicListenerService,
-      ],
-      exports: [KafkaProducerService, KafkaDynamicListenerService],
+      imports: [KafkaCoreModule.forRoot(), DiscoveryModule],
+      providers: KafkaModule.createBaseProviders(),
+      exports: [KafkaProducerService, KafkaExplorer],
     };
   }
 
   static forRoot(options: KafkaConfig): DynamicModule {
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
-      providers: this.createProviders(options),
-      exports: [KafkaProducerService, KafkaDynamicListenerService, KAFKA_MODULE_OPTIONS],
+      imports: [KafkaCoreModule.forRoot(), DiscoveryModule],
+      providers: [
+        {
+          provide: KAFKA_MODULE_OPTIONS,
+          useValue: options,
+        },
+        ...KafkaModule.createBaseProviders()
+      ],
+      exports: [KafkaProducerService, KafkaExplorer, KAFKA_MODULE_OPTIONS],
     };
   }
 
@@ -65,17 +62,12 @@ export class KafkaModule {
 
     return {
       module: KafkaModule,
-      imports: [DiscoveryModule, KafkaCoreModule.forRoot()],
+      imports: [KafkaCoreModule.forRoot(), DiscoveryModule],
       providers: [
         asyncProvider,
-        {
-          provide: 'KAFKA_PARTITIONER',
-          useValue: undefined,
-        },
-        KafkaDynamicListenerService,
-        KafkaProducerService,
+        ...KafkaModule.createBaseProviders(),
       ],
-      exports: [KafkaProducerService, KafkaDynamicListenerService, KAFKA_MODULE_OPTIONS],
+      exports: [KafkaProducerService, KafkaExplorer, KAFKA_MODULE_OPTIONS],
     };
   }
 }

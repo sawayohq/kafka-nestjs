@@ -1,43 +1,33 @@
-import { Module, Global, OnModuleInit, DynamicModule } from '@nestjs/common';
-import { ModulesContainer, MetadataScanner, Reflector } from '@nestjs/core';
+import { Module, Global, DynamicModule } from '@nestjs/common';
+import { MetadataScanner, Reflector, ModulesContainer } from '@nestjs/core';
 
 @Global()
 @Module({})
-export class KafkaCoreModule implements OnModuleInit {
-  private static modulesContainer: ModulesContainer;
-  private static metadataScanner: MetadataScanner;
-  private static reflector: Reflector;
-
+export class KafkaCoreModule {
   static forRoot(): DynamicModule {
-    this.modulesContainer = new ModulesContainer();
-    this.metadataScanner = new MetadataScanner();
-    this.reflector = new Reflector();
-
     return {
       module: KafkaCoreModule,
       providers: [
         {
-          provide: ModulesContainer,
-          useValue: this.modulesContainer,
-        },
-        {
           provide: MetadataScanner,
-          useValue: this.metadataScanner,
+          useValue: new MetadataScanner(),
         },
         {
           provide: Reflector,
-          useValue: this.reflector,
+          useValue: new Reflector(),
+        },
+        {
+          provide: ModulesContainer,
+          useFactory: () => {
+            return new ModulesContainer();
+          },
         },
       ],
       exports: [
-        ModulesContainer,
         MetadataScanner,
         Reflector,
+        ModulesContainer,
       ],
     };
   }
-
-  constructor(private readonly modulesContainer: ModulesContainer) {}
-
-  onModuleInit() {}
 } 

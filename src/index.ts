@@ -1,6 +1,6 @@
 import { KafkaModule } from './kafka.module';
 import { KafkaProducerService } from './services/kafka-producer.service';
-import { KafkaDynamicListenerService } from './services/kafka-dynamic-listener.service';
+import { KafkaExplorer } from './services/kafka.explorer';
 import { SharedKafkaAsyncConfiguration } from './interfaces/shared-queue-async-configuration';
 import { KafkaDuplicateGroupIdServerException } from './exceptions/kafka.duplicate-group-id.server.exception';
 import { KafkaConsumerOptions, KafkaConsumer } from './decorators/kafka.decorator';
@@ -10,7 +10,7 @@ import { KafkaProcessor } from './decorators/kafka-processor.decorator';
 export {
   KafkaModule,
   KafkaProducerService,
-  KafkaDynamicListenerService,
+  KafkaExplorer as KafkaDynamicListenerService,
   SharedKafkaAsyncConfiguration,
   KafkaInvalidConfigServerException,
   KafkaDuplicateGroupIdServerException,

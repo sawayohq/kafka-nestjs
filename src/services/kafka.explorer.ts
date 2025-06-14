@@ -1,34 +1,32 @@
-import { MetadataScanner, ModulesContainer, Reflector } from '@nestjs/core';
+import { DiscoveryService, MetadataScanner,  } from '@nestjs/core';
 import { Kafka, EachMessagePayload, Consumer, KafkaConfig, KafkaJSProtocolError } from 'kafkajs';
-import { KafkaConsumerOptions } from '../decorators/kafka.decorator';
 import {
   Inject,
   Injectable,
   Logger,
-  OnApplicationBootstrap,
-  OnApplicationShutdown,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
+import { KafkaConsumerOptions } from '../decorators/kafka.decorator';
 import {
-  KAFKA_CONSUMER_METADATA,
   KAFKA_MODULE_OPTIONS,
 } from '../constants/kafka.constants';
-import { KafkaDuplicateGroupIdServerException } from '../exceptions/kafka.duplicate-group-id.server.exception';
-import { KAFKA_PROCESSOR_METADATA } from '../decorators/kafka-processor.decorator';
+import { KafkaMetadataAccessor } from './kafka-metadata.accessor';
+import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 
 @Injectable()
-export class KafkaDynamicListenerService
-  implements OnApplicationBootstrap, OnApplicationShutdown
+export class KafkaExplorer
+  implements OnModuleInit, OnModuleDestroy
 {
-  private readonly logger = new Logger(KafkaDynamicListenerService.name);
+  private readonly logger = new Logger(KafkaExplorer.name);
   private readonly kafka: Kafka;
-  private readonly groupIds = new Set<string>();
   private readonly consumers: Consumer[] = [];
   private initialized = false;
 
   constructor(
-    private readonly modulesContainer: ModulesContainer,
+    private readonly discoveryService: DiscoveryService,
     private readonly metadataScanner: MetadataScanner,
-    private readonly reflector: Reflector,
+    private readonly metadataAccessor: KafkaMetadataAccessor,
     @Inject(KAFKA_MODULE_OPTIONS)
     private readonly options: KafkaConfig,
   ) {
@@ -69,103 +67,87 @@ export class KafkaDynamicListenerService
     }
   }
 
-  async onApplicationBootstrap() {
-    if (this.initialized) {
-      return;
-    }
+  async onModuleInit() {
+    await this.explore();
+  }
 
-    if (this.modulesContainer.size === 0) {
-      this.logger.error({
-        message: 'No modules found in container',
-        info: {
-          modulesContainer: this.modulesContainer,
-        },
-      });
+  async onModuleDestroy() {
+    await this.destroy();
+  }
+
+  async explore() {
+    if (this.initialized) {
       return;
     }
     
     const topicPromises: Promise<void>[] = [];
     const consumerPromises: Promise<void>[] = [];
     
-    for (const moduleRef of this.modulesContainer.values()) {
-      for (const provider of [...moduleRef.providers.values()]) {
-        const { instance } = provider;
-        if (!instance || typeof instance !== 'object') continue;
+    const providers: InstanceWrapper[] = this.discoveryService.getProviders()
+      .filter((wrapper: InstanceWrapper) =>
+        this.metadataAccessor.isProcessor(
+          !wrapper.metatype || wrapper.inject
+            ? wrapper.instance?.constructor
+            : wrapper.metatype,
+        ));
+    
 
-        // Check if the class is a Kafka processor
-        const isKafkaProcessor = this.reflector.get(
-          KAFKA_PROCESSOR_METADATA,
-          instance.constructor,
-        );
+    providers.forEach(( wrapper: InstanceWrapper ) => {
+      const { instance } = wrapper;
+      const prototype = Object.getPrototypeOf(instance);
+      const methods = this.metadataScanner.getAllMethodNames(prototype)
+      .filter(methodName => typeof instance[methodName] === 'function' && methodName !== 'constructor')
+      .map(methodName => prototype[methodName]);
 
-        if (!isKafkaProcessor) continue;
-        
-        const prototype = Object.getPrototypeOf(instance);
-        const methodNames = this.metadataScanner.getAllMethodNames(prototype);
-        
-        for (const methodName of methodNames) {
-          const method = prototype[methodName];
-          if (typeof method !== 'function') continue;
-          
-          const metadata: KafkaConsumerOptions = this.reflector.get(
-            KAFKA_CONSUMER_METADATA,
-            method,
-          );
-          
-          if (metadata) {
-            try {
-              // Create topics in parallel
-              for (const topic of metadata.subscribe.topics) {
-                if (typeof topic === 'string') {
-                  topicPromises.push(this.ensureTopicExists(topic));
-                }
+      methods.forEach( (method) => {
+        const kafkaOptions = this.metadataAccessor.getConsumerOptionsMetadata(method);
+        if (kafkaOptions) {
+          try {
+            // Create topics in parallel
+            for (const topic of kafkaOptions.subscribe.topics) {
+              if (typeof topic === 'string') {
+                topicPromises.push(this.ensureTopicExists(topic));
               }
-              
-              // Bind consumers in parallel
-              consumerPromises.push(
-                this.bindConsumer(
-                  {
-                    name: methodName,
-                    path: method.toString(),
-                    provider: provider.name,
-                    module: moduleRef.name,
+            }
+
+            // Bind consumers in parallel
+            consumerPromises.push(
+              this.bindConsumer(
+                kafkaOptions,
+                method.bind(instance),
+              )
+            );
+          } catch (error) {
+            if (error instanceof KafkaJSProtocolError) {
+              this.logger.error({
+                message: `Kafka protocol error for method`,
+                info: {
+                  methodName: method.name,
+                  error: {
+                    stack: error.stack,
+                    ...error,
                   },
-                  metadata,
-                  method.bind(instance),
-                )
-              );
-            } catch (error) {
-              if (error instanceof KafkaJSProtocolError) {
-                this.logger.error({
-                  message: `Kafka protocol error for method`,
-                  info: {
-                    methodName,
-                    error: {
-                      stack: error.stack,
-                      ...error,
-                    },
+                },
+              });
+            } else {
+              this.logger.error({
+                message: `Error binding consumer for method`,
+                info: {
+                  methodName: method.name,
+                  error: {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                    ...error
                   },
-                });
-              } else {
-                this.logger.error({
-                  message: `Error binding consumer for method`,
-                  info: {
-                    methodName,
-                    error: {
-                      message: error.message,
-                      stack: error.stack,
-                      name: error.name,
-                      ...error
-                    },
-                  },
-                });
-              }
+                },
+              });
             }
           }
         }
-      }
-    }
-
+      });
+    });
+ 
     // Wait for all topics to be created
     await Promise.all(topicPromises);
     
@@ -176,21 +158,9 @@ export class KafkaDynamicListenerService
   }
 
   async bindConsumer(
-    methodDescription: {
-      name: string;
-      path: string;
-      provider: string;
-      module: string;
-    },
     options: KafkaConsumerOptions,
     handler: (message: any, payload?: EachMessagePayload) => Promise<void>,
   ) {
-    const groupId = options.consumerConfig.groupId;
-    if (this.groupIds.has(groupId)) {
-      throw new KafkaDuplicateGroupIdServerException(methodDescription);
-    }
-    this.groupIds.add(groupId);
-
     const consumer = this.kafka.consumer(options.consumerConfig);
     this.consumers.push(consumer);
 
@@ -252,7 +222,7 @@ export class KafkaDynamicListenerService
     }
   }
 
-  async onApplicationShutdown() {
+  async destroy() {
     await Promise.all(
       this.consumers.map(async consumer => {
         try {
@@ -264,7 +234,7 @@ export class KafkaDynamicListenerService
                 consumer,
               },
             },
-            this.onApplicationShutdown.name,
+            this.destroy.name,
           );
         } catch (error) {
           this.logger.error(
@@ -280,7 +250,7 @@ export class KafkaDynamicListenerService
                 consumer,
               },
             },
-            this.onApplicationShutdown.name,
+            this.destroy.name,
           );
         }
       }),
