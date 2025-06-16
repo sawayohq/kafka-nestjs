@@ -57,9 +57,13 @@ async function runTest() {
 
       // Check for providers count in the output
       if (chunk.includes('modulesContainer.size')) {
+        console.log('Found modulesContainer.size in output:', chunk);
         const match = chunk.match(/modulesContainer\.size\s*=\s*(\d+)/);
-        if (match && parseInt(match[1]) > 0) {
-          providersFound = true;
+        if (match) {
+          console.log('Match found:', match[1]);
+          if (parseInt(match[1]) > 0) {
+            providersFound = true;
+          }
         }
       }
 

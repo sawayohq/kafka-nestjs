@@ -1,8 +1,8 @@
 import { Module, OnModuleInit } from '@nestjs/common';
-import { KafkaModule } from '../src/kafka.module';
 import { TestController } from './test.controller';
 import { TestService } from './test.service';
 import { Logger } from '@nestjs/common';
+import { KafkaModule }  from '../src';
 
 @Module({
   imports: [

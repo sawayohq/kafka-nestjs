@@ -5,7 +5,10 @@ import { KafkaConsumerOptions } from '../decorators/kafka.decorator';
 
 @Injectable()
 export class KafkaMetadataAccessor {
-  constructor(private readonly reflector: Reflector) {}
+  private readonly reflector: Reflector;
+  constructor() {
+    this.reflector = new Reflector();
+  }
 
 
   isProcessor(target: Type<any> | Function): boolean {

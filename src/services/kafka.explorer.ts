@@ -1,4 +1,4 @@
-import { DiscoveryService, MetadataScanner,  } from '@nestjs/core';
+import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { Kafka, EachMessagePayload, Consumer, KafkaConfig, KafkaJSProtocolError } from 'kafkajs';
 import {
   Inject,
@@ -91,7 +91,7 @@ export class KafkaExplorer
             : wrapper.metatype,
         ));
     
-
+    console.log('providers', providers.length);
     providers.forEach(( wrapper: InstanceWrapper ) => {
       const { instance } = wrapper;
       const prototype = Object.getPrototypeOf(instance);
@@ -99,6 +99,7 @@ export class KafkaExplorer
       .filter(methodName => typeof instance[methodName] === 'function' && methodName !== 'constructor')
       .map(methodName => prototype[methodName]);
 
+      
       methods.forEach( (method) => {
         const kafkaOptions = this.metadataAccessor.getConsumerOptionsMetadata(method);
         if (kafkaOptions) {
