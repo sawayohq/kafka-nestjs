@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { KAFKA_CONSUMER_METADATA } from '../constants/kafka.constants';
+import { KAFKA_CONSUMER_METADATA, KAFKA_PROCESSOR_METADATA } from '../constants/kafka.constants';
 import { ConsumerSubscribeTopics, ConsumerConfig } from 'kafkajs';
 
 export type KafkaConsumerOptions = {
@@ -13,3 +13,9 @@ export const KafkaConsumer = (options: KafkaConsumerOptions): MethodDecorator =>
     return descriptor;
   };
 };
+
+export function KafkaProcessor(): ClassDecorator {
+  return (target: Function) => {
+    SetMetadata(KAFKA_PROCESSOR_METADATA, true)(target);
+  };
+} 

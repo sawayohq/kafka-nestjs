@@ -1,6 +1,6 @@
 {
   "name": "kafka-nestjs",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "A structured Kafka integration for NestJS inspired by BullMQ, offering decorators, modular configuration, and a scalable consumer/producer architecture.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,9 +28,9 @@
     "url": "https://github.com/behrad-kzm/kafka-nestjs/issues"
   },
   "homepage": "https://github.com/behrad-kzm/kafka-nestjs#readme",
-  "dependencies": {
-    "@nestjs/common": "^11.1.2",
-    "@nestjs/core": "^11.1.2",
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
     "kafkajs": "^2.2.4"
   },
   "devDependencies": {
