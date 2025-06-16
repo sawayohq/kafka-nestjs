@@ -12,6 +12,22 @@ import { SharedKafkaAsyncConfiguration } from "./interfaces/shared-queue-async-c
 @Module({})
 export class KafkaModule {
 
+  static forProducer(): DynamicModule {
+    return {
+      module: KafkaModule,
+      imports: [DiscoveryModule],
+      providers: [
+        {
+          provide: 'KAFKA_PARTITIONER',
+          useValue: undefined,
+        },
+        KafkaProducerService,
+        KafkaExplorer,
+      ],
+      exports: [KafkaProducerService, KafkaExplorer],
+    };
+  }
+
   static forRootAsync(options: SharedKafkaAsyncConfiguration): DynamicModule {
     const asyncProvider: Provider = {
       provide: KAFKA_MODULE_OPTIONS,
@@ -29,10 +45,6 @@ export class KafkaModule {
       providers: [
         asyncProvider,
         {
-          provide: KAFKA_MODULE_OPTIONS,
-          useValue: options,
-        },
-        {
           provide: 'KAFKA_PARTITIONER',
           useValue: undefined,
         },
@@ -40,7 +52,7 @@ export class KafkaModule {
         KafkaProducerService,
         KafkaExplorer,
       ],
-      exports: [KafkaProducerService, KafkaExplorer, KAFKA_MODULE_OPTIONS],
+      exports: [KafkaProducerService, KafkaExplorer, asyncProvider],
     };
   }
 
