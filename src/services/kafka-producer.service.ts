@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional } from '@nestjs/common';
-import { ICustomPartitioner, Kafka, KafkaConfig, Partitioners, Producer, ProducerRecord } from 'kafkajs';
+import { ICustomPartitioner, Kafka, KafkaConfig, logLevel, Partitioners, Producer, ProducerRecord } from 'kafkajs';
 import { KAFKA_MODULE_OPTIONS } from '../constants/kafka.constants';
 
 @Injectable()
@@ -23,18 +23,20 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    
+
     await this.producer.connect();
-    this.logger.log(
-      {
-        message: 'Kafka producer connected',
-        info: {
-          clientId: this.options.clientId,
-          brokers: this.options.brokers,
+    if (this.options.logLevel === logLevel.DEBUG) {
+      this.logger.log(
+        {
+          message: 'Kafka producer connected',
+          info: {
+            clientId: this.options.clientId,
+            brokers: this.options.brokers,
+          },
         },
-      },
-      this.onModuleInit.name,
-    );
+        this.onModuleInit.name,
+      );
+    }
   }
 
   async send(payload: ProducerRecord) {
@@ -44,16 +46,18 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (this.producer) {
       await this.producer.disconnect();
-      this.logger.log(
-        {
-          message: 'Kafka producer disconnected',
-          info: {
-            clientId: this.options.clientId,
-            brokers: this.options.brokers,
+      if (this.options.logLevel === logLevel.DEBUG) {
+        this.logger.log(
+          {
+            message: 'Kafka producer disconnected',
+            info: {
+              clientId: this.options.clientId,
+              brokers: this.options.brokers,
+            },
           },
-        },
-        this.onModuleDestroy.name,
-      );
+          this.onModuleDestroy.name,
+        );
+      }
     }
   }
 }

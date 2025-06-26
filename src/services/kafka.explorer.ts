@@ -1,5 +1,5 @@
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { Kafka, EachMessagePayload, Consumer, KafkaConfig, KafkaJSProtocolError } from 'kafkajs';
+import { Kafka, EachMessagePayload, Consumer, KafkaConfig, KafkaJSProtocolError, logLevel } from 'kafkajs';
 import {
   Inject,
   Injectable,
@@ -16,8 +16,7 @@ import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 
 @Injectable()
 export class KafkaExplorer
-  implements OnModuleInit, OnModuleDestroy
-{
+  implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaExplorer.name);
   private readonly kafka: Kafka;
   private readonly consumers: Consumer[] = [];
@@ -37,7 +36,7 @@ export class KafkaExplorer
     try {
       const admin = this.kafka.admin();
       await admin.connect();
-      
+
       const topics = await admin.listTopics();
       if (!topics.includes(topic)) {
         await admin.createTopics({
@@ -48,21 +47,23 @@ export class KafkaExplorer
           }],
         });
       }
-      
+
       await admin.disconnect();
     } catch (error) {
-      this.logger.error({
-        message: `Failed to ensure topic exists`,
-        info: {
-          topic,
-          error: {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-            ...error
+      if (this.options.logLevel > logLevel.NOTHING) {
+        this.logger.error({
+          message: `Failed to ensure topic exists`,
+          info: {
+            topic,
+            error: {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              ...error
+            },
           },
-        },
-      });
+        });
+      }
       throw error;
     }
   }
@@ -79,10 +80,10 @@ export class KafkaExplorer
     if (this.initialized) {
       return;
     }
-    
+
     const topicPromises: Promise<void>[] = [];
     const consumerPromises: Promise<void>[] = [];
-    
+
     const providers: InstanceWrapper[] = this.discoveryService.getProviders()
       .filter((wrapper: InstanceWrapper) =>
         this.metadataAccessor.isProcessor(
@@ -90,17 +91,23 @@ export class KafkaExplorer
             ? wrapper.instance?.constructor
             : wrapper.metatype,
         ));
-    
-    console.log('providers', providers.length);
-    providers.forEach(( wrapper: InstanceWrapper ) => {
+    if (this.options.logLevel === logLevel.DEBUG) {
+      this.logger.log({
+        message: `kafka consumers found`,
+        info: {
+          numberOfConsumers: providers.length
+        },
+      });
+    }
+    providers.forEach((wrapper: InstanceWrapper) => {
       const { instance } = wrapper;
       const prototype = Object.getPrototypeOf(instance);
       const methods = this.metadataScanner.getAllMethodNames(prototype)
-      .filter(methodName => typeof instance[methodName] === 'function' && methodName !== 'constructor')
-      .map(methodName => prototype[methodName]);
+        .filter(methodName => typeof instance[methodName] === 'function' && methodName !== 'constructor')
+        .map(methodName => prototype[methodName]);
 
-      
-      methods.forEach( (method) => {
+
+      methods.forEach((method) => {
         const kafkaOptions = this.metadataAccessor.getConsumerOptionsMetadata(method);
         if (kafkaOptions) {
           try {
@@ -120,38 +127,43 @@ export class KafkaExplorer
             );
           } catch (error) {
             if (error instanceof KafkaJSProtocolError) {
-              this.logger.error({
-                message: `Kafka protocol error for method`,
-                info: {
-                  methodName: method.name,
-                  error: {
-                    stack: error.stack,
-                    ...error,
+              if (this.options.logLevel > logLevel.NOTHING) {
+                this.logger.error({
+                  message: `Kafka protocol error for method`,
+                  info: {
+                    methodName: method.name,
+                    error: {
+                      stack: error.stack,
+                      ...error,
+                    },
                   },
-                },
-              });
+                });
+              }
             } else {
-              this.logger.error({
-                message: `Error binding consumer for method`,
-                info: {
-                  methodName: method.name,
-                  error: {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                    ...error
+              if (this.options.logLevel > logLevel.NOTHING) {
+                this.logger.error({
+                  message: `Error binding consumer for method`,
+                  info: {
+                    methodName: method.name,
+                    error: {
+                      message: error.message,
+                      stack: error.stack,
+                      name: error.name,
+                      ...error
+                    },
                   },
-                },
-              });
+                });
+              }
             }
+            throw error;
           }
         }
       });
     });
- 
+
     // Wait for all topics to be created
     await Promise.all(topicPromises);
-    
+
     // Wait for all consumers to be bound
     await Promise.all(consumerPromises);
 
@@ -194,31 +206,35 @@ export class KafkaExplorer
         },
       });
 
-      this.logger.log(
-        {
-          message: `Kafka consumer registered for topic`,
-          info: {
-            options,
-          },
-        },
-        this.bindConsumer.name,
-      );
-    } catch (error) {
-      this.logger.error(
-        {
-          message: `Failed to bind consumer`,
-          info: {
-            error: {
-              message: error.message,
-              stack: error.stack,
-              name: error.name,
-              ...error
+      if (this.options.logLevel === logLevel.DEBUG) {
+        this.logger.log(
+          {
+            message: `Kafka consumer registered for topic`,
+            info: {
+              options,
             },
-            options,
           },
-        },
-        this.bindConsumer.name,
-      );
+          this.bindConsumer.name,
+        );
+      }
+    } catch (error) {
+      if (this.options.logLevel > logLevel.NOTHING) {
+        this.logger.error(
+          {
+            message: `Failed to bind consumer`,
+            info: {
+              error: {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+                ...error
+              },
+              options,
+            },
+          },
+          this.bindConsumer.name,
+        );
+      }
       throw error;
     }
   }
@@ -228,31 +244,35 @@ export class KafkaExplorer
       this.consumers.map(async consumer => {
         try {
           await consumer.disconnect();
-          this.logger.log(
-            {
-              message: 'Kafka consumer disconnected',
-              info: {
-                consumer,
-              },
-            },
-            this.destroy.name,
-          );
-        } catch (error) {
-          this.logger.error(
-            {
-              message: 'Error disconnecting Kafka consumer',
-              info: {
-                error: {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                  ...error
+          if (this.options.logLevel === logLevel.DEBUG) {
+            this.logger.log(
+              {
+                message: 'Kafka consumer disconnected',
+                info: {
+                  consumer,
                 },
-                consumer,
               },
-            },
-            this.destroy.name,
-          );
+              this.destroy.name,
+            );
+          }
+        } catch (error) {
+          if (this.options.logLevel > logLevel.NOTHING) {
+            this.logger.error(
+              {
+                message: 'Error disconnecting Kafka consumer',
+                info: {
+                  error: {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                    ...error
+                  },
+                  consumer,
+                },
+              },
+              this.destroy.name,
+            );
+          }
         }
       }),
     );
