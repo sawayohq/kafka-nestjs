@@ -5,7 +5,7 @@ A structured Kafka integration for NestJS inspired by BullMQ, offering decorator
 ## Installation
 
 ```bash
-npm install kafka-nestjs
+npm install @sawayo/kafka-nestjs
 ```
 
 ## Features
@@ -26,7 +26,7 @@ import { KafkaModule } from 'kafka-nestjs';
 
 @Module({
   imports: [
-    KafkaModule.forRoot({
+    KafkaModule.register({
       clientId: 'my-app',
       brokers: ['localhost:9092'],
     }),
@@ -38,10 +38,10 @@ export class AppModule {}
 ### 2. Create a Consumer
 
 ```typescript
-import { KafkaConsumer } from 'kafka-nestjs';
+import { KafkaConsumer, KafkaProcessor } from 'kafka-nestjs';
 
-@Controller()
-export class MyController {
+@KafkaProcessor()
+export class MyKafkaProcessor {
   @KafkaConsumer({
     subscribe: {
       topics: ['example.event.stage'],
@@ -95,7 +95,7 @@ export class MyController {
 ### Synchronous Configuration
 
 ```typescript
-KafkaModule.forRoot({
+KafkaModule.register({
   clientId: 'my-app',
   brokers: ['localhost:9092'],
   // ... other KafkaJS options
@@ -105,7 +105,7 @@ KafkaModule.forRoot({
 ### Asynchronous Configuration
 
 ```typescript
-KafkaModule.forRootAsync({
+KafkaModule.registerAsync({
   useFactory: async (configService: ConfigService) => ({
     clientId: configService.get('KAFKA_CLIENT_ID'),
     brokers: configService.get('KAFKA_BROKERS'),
@@ -155,7 +155,7 @@ MIT
 
 ## Author
 
-Behrad Kazemi
+Sawayo
 
 ## Contributing
 
