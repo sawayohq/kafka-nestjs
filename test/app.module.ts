@@ -1,20 +1,23 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { TestController } from './test.controller';
-import { TestService } from './test.service';
-import { Logger } from '@nestjs/common';
-import { KafkaModule }  from '../src';
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { TestController } from "./test.controller";
+import { TestService } from "./test.service";
+import { KafkaModule } from "../src";
 
 @Module({
   imports: [
-    KafkaModule.forRoot({
-      clientId: 'clientId',
-      brokers: ['localhost:9092'],
-      sasl: {
-        mechanism: 'plain',
-        username: 'kafka',
-        password: 'docker123'
+    KafkaModule.registerAsync({
+      useFactory: () => {
+        return {
+          clientId: "clientId",
+          brokers: ["localhost:9092"],
+          sasl: {
+            mechanism: "plain",
+            username: "kafka",
+            password: "docker123",
+          },
+          ssl: false,
+        };
       },
-      ssl: false
     }),
   ],
   controllers: [TestController],
@@ -26,6 +29,6 @@ export class AppModule implements OnModuleInit {
   constructor(private readonly testService: TestService) {}
 
   onModuleInit() {
-    this.logger.log('AppModule initialized');
+    this.logger.log("AppModule initialized");
   }
-} 
+}

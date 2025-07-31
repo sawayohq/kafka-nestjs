@@ -1,20 +1,35 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional } from '@nestjs/common';
-import { ICustomPartitioner, Kafka, KafkaConfig, logLevel, Partitioners, Producer, ProducerRecord } from 'kafkajs';
-import { KAFKA_MODULE_OPTIONS } from '../constants/kafka.constants';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from "@nestjs/common";
+import {
+  ICustomPartitioner,
+  Kafka,
+  KafkaConfig,
+  logLevel,
+  Partitioners,
+  Producer,
+  ProducerRecord,
+} from "kafkajs";
+import { MODULE_OPTIONS_TOKEN } from "../kafka.module-definition";
 
 @Injectable()
 export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   readonly logger = new Logger(KafkaProducerService.name);
 
-  private kafka: Kafka;
-  private producer: Producer;
+  private readonly kafka: Kafka;
+  private readonly producer: Producer;
 
   constructor(
     @Optional()
-    @Inject('KAFKA_PARTITIONER')
+    @Inject("KAFKA_PARTITIONER")
     readonly createPartitioner: ICustomPartitioner = Partitioners.DefaultPartitioner,
-    @Inject(KAFKA_MODULE_OPTIONS)
-    private readonly options: KafkaConfig,
+    @Inject(MODULE_OPTIONS_TOKEN)
+    private readonly options: KafkaConfig
   ) {
     this.kafka = new Kafka(this.options);
     this.producer = this.kafka.producer({
@@ -23,18 +38,17 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-
     await this.producer.connect();
     if (this.options.logLevel === logLevel.DEBUG) {
       this.logger.log(
         {
-          message: 'Kafka producer connected',
+          message: "Kafka producer connected",
           info: {
             clientId: this.options.clientId,
             brokers: this.options.brokers,
           },
         },
-        this.onModuleInit.name,
+        this.onModuleInit.name
       );
     }
   }
@@ -49,13 +63,13 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       if (this.options.logLevel === logLevel.DEBUG) {
         this.logger.log(
           {
-            message: 'Kafka producer disconnected',
+            message: "Kafka producer disconnected",
             info: {
               clientId: this.options.clientId,
               brokers: this.options.brokers,
             },
           },
-          this.onModuleDestroy.name,
+          this.onModuleDestroy.name
         );
       }
     }

@@ -1,22 +1,26 @@
-import { DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { Kafka, EachMessagePayload, Consumer, KafkaConfig, KafkaJSProtocolError, logLevel } from 'kafkajs';
 import {
   Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
-} from '@nestjs/common';
-import { KafkaConsumerOptions } from '../decorators/kafka.decorator';
+} from "@nestjs/common";
+import { DiscoveryService, MetadataScanner } from "@nestjs/core";
+import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
 import {
-  KAFKA_MODULE_OPTIONS,
-} from '../constants/kafka.constants';
-import { KafkaMetadataAccessor } from './kafka-metadata.accessor';
-import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+  Consumer,
+  EachMessagePayload,
+  Kafka,
+  KafkaConfig,
+  KafkaJSProtocolError,
+  logLevel,
+} from "kafkajs";
+import { KafkaConsumerOptions } from "../decorators/kafka.decorator";
+import { MODULE_OPTIONS_TOKEN } from "../kafka.module-definition";
+import { KafkaMetadataAccessor } from "./kafka-metadata.accessor";
 
 @Injectable()
-export class KafkaExplorer
-  implements OnModuleInit, OnModuleDestroy {
+export class KafkaExplorer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaExplorer.name);
   private readonly kafka: Kafka;
   private readonly consumers: Consumer[] = [];
@@ -26,8 +30,8 @@ export class KafkaExplorer
     private readonly discoveryService: DiscoveryService,
     private readonly metadataScanner: MetadataScanner,
     private readonly metadataAccessor: KafkaMetadataAccessor,
-    @Inject(KAFKA_MODULE_OPTIONS)
-    private readonly options: KafkaConfig,
+    @Inject(MODULE_OPTIONS_TOKEN)
+    private readonly options: KafkaConfig
   ) {
     this.kafka = new Kafka(this.options);
   }
@@ -40,11 +44,13 @@ export class KafkaExplorer
       const topics = await admin.listTopics();
       if (!topics.includes(topic)) {
         await admin.createTopics({
-          topics: [{
-            topic,
-            numPartitions: 1,
-            replicationFactor: 1,
-          }],
+          topics: [
+            {
+              topic,
+              numPartitions: 1,
+              replicationFactor: 1,
+            },
+          ],
         });
       }
 
@@ -59,7 +65,7 @@ export class KafkaExplorer
               message: error.message,
               stack: error.stack,
               name: error.name,
-              ...error
+              ...error,
             },
           },
         });
@@ -84,46 +90,50 @@ export class KafkaExplorer
     const topicPromises: Promise<void>[] = [];
     const consumerPromises: Promise<void>[] = [];
 
-    const providers: InstanceWrapper[] = this.discoveryService.getProviders()
+    const providers: InstanceWrapper[] = this.discoveryService
+      .getProviders()
       .filter((wrapper: InstanceWrapper) =>
         this.metadataAccessor.isProcessor(
           !wrapper.metatype || wrapper.inject
             ? wrapper.instance?.constructor
-            : wrapper.metatype,
-        ));
+            : wrapper.metatype
+        )
+      );
     if (this.options.logLevel === logLevel.DEBUG) {
       this.logger.log({
         message: `kafka consumers found`,
         info: {
-          numberOfConsumers: providers.length
+          numberOfConsumers: providers.length,
         },
       });
     }
     providers.forEach((wrapper: InstanceWrapper) => {
       const { instance } = wrapper;
       const prototype = Object.getPrototypeOf(instance);
-      const methods = this.metadataScanner.getAllMethodNames(prototype)
-        .filter(methodName => typeof instance[methodName] === 'function' && methodName !== 'constructor')
-        .map(methodName => prototype[methodName]);
-
+      const methods = this.metadataScanner
+        .getAllMethodNames(prototype)
+        .filter(
+          (methodName) =>
+            typeof instance[methodName] === "function" &&
+            methodName !== "constructor"
+        )
+        .map((methodName) => prototype[methodName]);
 
       methods.forEach((method) => {
-        const kafkaOptions = this.metadataAccessor.getConsumerOptionsMetadata(method);
+        const kafkaOptions =
+          this.metadataAccessor.getConsumerOptionsMetadata(method);
         if (kafkaOptions) {
           try {
             // Create topics in parallel
             for (const topic of kafkaOptions.subscribe.topics) {
-              if (typeof topic === 'string') {
+              if (typeof topic === "string") {
                 topicPromises.push(this.ensureTopicExists(topic));
               }
             }
 
             // Bind consumers in parallel
             consumerPromises.push(
-              this.bindConsumer(
-                kafkaOptions,
-                method.bind(instance),
-              )
+              this.bindConsumer(kafkaOptions, method.bind(instance))
             );
           } catch (error) {
             if (error instanceof KafkaJSProtocolError) {
@@ -149,7 +159,7 @@ export class KafkaExplorer
                       message: error.message,
                       stack: error.stack,
                       name: error.name,
-                      ...error
+                      ...error,
                     },
                   },
                 });
@@ -172,7 +182,7 @@ export class KafkaExplorer
 
   async bindConsumer(
     options: KafkaConsumerOptions,
-    handler: (message: any, payload?: EachMessagePayload) => Promise<void>,
+    handler: (message: any, payload?: EachMessagePayload) => Promise<void>
   ) {
     const consumer = this.kafka.consumer(options.consumerConfig);
     this.consumers.push(consumer);
@@ -195,12 +205,12 @@ export class KafkaExplorer
                     message: error.message,
                     stack: error.stack,
                     name: error.name,
-                    ...error
+                    ...error,
                   },
                   options,
                 },
               },
-              this.bindConsumer.name,
+              this.bindConsumer.name
             );
           }
         },
@@ -214,7 +224,7 @@ export class KafkaExplorer
               options,
             },
           },
-          this.bindConsumer.name,
+          this.bindConsumer.name
         );
       }
     } catch (error) {
@@ -227,12 +237,12 @@ export class KafkaExplorer
                 message: error.message,
                 stack: error.stack,
                 name: error.name,
-                ...error
+                ...error,
               },
               options,
             },
           },
-          this.bindConsumer.name,
+          this.bindConsumer.name
         );
       }
       throw error;
@@ -241,40 +251,40 @@ export class KafkaExplorer
 
   async destroy() {
     await Promise.all(
-      this.consumers.map(async consumer => {
+      this.consumers.map(async (consumer) => {
         try {
           await consumer.disconnect();
           if (this.options.logLevel === logLevel.DEBUG) {
             this.logger.log(
               {
-                message: 'Kafka consumer disconnected',
+                message: "Kafka consumer disconnected",
                 info: {
                   consumer,
                 },
               },
-              this.destroy.name,
+              this.destroy.name
             );
           }
         } catch (error) {
           if (this.options.logLevel > logLevel.NOTHING) {
             this.logger.error(
               {
-                message: 'Error disconnecting Kafka consumer',
+                message: "Error disconnecting Kafka consumer",
                 info: {
                   error: {
                     message: error.message,
                     stack: error.stack,
                     name: error.name,
-                    ...error
+                    ...error,
                   },
                   consumer,
                 },
               },
-              this.destroy.name,
+              this.destroy.name
             );
           }
         }
-      }),
+      })
     );
   }
 }
